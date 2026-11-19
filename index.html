@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MAGMA — Lámpara de lava</title>
+<style>
+  :root{
+    --ink:#efe9f7;
+    --ink-dim:#a49cc0;
+    --ink-faint:#6f6884;
+    --accent:#ff8a3d;
+    --accent-2:#ff4d8d;
+    --hair:rgba(255,196,240,.14);
+    --tray:rgba(20,10,26,.58);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:#07040c}
+  body{
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  #stage{position:fixed;inset:0;display:block;touch-action:none;cursor:grab}
+  #stage:active{cursor:grabbing}
+
+  .ui{position:fixed;inset:0;pointer-events:none;z-index:2}
+  .ui > *{pointer-events:auto}
+
+  /* ---------- cabecera ---------- */
+  .head{position:absolute;top:max(22px,env(safe-area-inset-top));left:26px;max-width:min(360px,72vw)}
+  .kicker{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .head h1{
+    font-family:Georgia,"Times New Roman",serif;
+    font-style:italic;font-weight:400;
+    font-size:clamp(24px,3.1vw,38px);
+    line-height:1.06;letter-spacing:-.01em;
+    margin:.34em 0 .5em;
+    color:var(--ink);
+  }
+  .head h1 em{font-style:italic;color:var(--accent);white-space:nowrap}
+  .head p{
+    font-size:13.5px;line-height:1.55;color:var(--ink-dim);
+    max-width:34ch;
+  }
+  .head p.hint{
+    margin-top:1.1em;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:10.5px;letter-spacing:.06em;color:var(--ink-faint);
+    transition:opacity .6s ease;
+  }
+
+  /* ---------- medidores ---------- */
+  .meters{
+    position:absolute;top:max(22px,env(safe-area-inset-top));right:26px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:11px;line-height:1.9;text-align:right;
+    color:var(--ink-dim);
+    font-variant-numeric:tabular-nums;
+  }
+  .meters b{color:var(--ink);font-weight:500}
+  .meters .dot{display:inline-block;width:5px;height:5px;border-radius:50%;
+    background:var(--accent);margin-right:6px;vertical-align:middle;
+    box-shadow:0 0 8px var(--accent)}
+
+  /* ---------- bandeja ---------- */
+  .tray{
+    position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));
+    transform:translateX(-50%);
+    display:flex;align-items:center;gap:clamp(10px,1.5vw,20px);
+    padding:11px 16px;
+    background:var(--tray);
+    border:1px solid rgba(255,255,255,.07);
+    border-radius:14px;
+    backdrop-filter:blur(14px) saturate(1.2);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2);
+    box-shadow:0 18px 44px -18px rgba(0,0,0,.9);
+    max-width:calc(100vw - 28px);
+    flex-wrap:wrap;justify-content:center;
+  }
+  .ctl{display:flex;align-items:center;gap:9px}
+  .ctl label{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-dim);white-space:nowrap;
+  }
+  .ctl output{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:11px;color:var(--ink);min-width:34px;text-align:right;
+    font-variant-numeric:tabular-nums;
+  }
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;
+    width:clamp(74px,11vw,116px);height:22px;background:transparent;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:3px;border-radius:2px;
+    background:linear-gradient(90deg,rgba(255,138,61,.85),rgba(255,77,141,.55));
+  }
+  input[type=range]::-moz-range-track{
+    height:3px;border-radius:2px;
+    background:linear-gradient(90deg,rgba(255,138,61,.85),rgba(255,77,141,.55));
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:14px;height:14px;border-radius:50%;
+    margin-top:-5.5px;background:#fff;
+    border:1px solid rgba(0,0,0,.4);
+    box-shadow:0 0 0 3px rgba(255,138,61,.22),0 2px 6px rgba(0,0,0,.6);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    border:1px solid rgba(0,0,0,.4);
+    box-shadow:0 0 0 3px rgba(255,138,61,.22),0 2px 6px rgba(0,0,0,.6);
+  }
+  .sep{width:1px;height:22px;background:rgba(255,255,255,.09)}
+
+  .switch{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+  .switch input{position:absolute;opacity:0;width:0;height:0}
+  .switch .track{
+    width:34px;height:19px;border-radius:10px;
+    background:rgba(255,255,255,.13);
+    border:1px solid rgba(255,255,255,.1);
+    position:relative;transition:background .2s ease;
+    flex:none;
+  }
+  .switch .track::after{
+    content:"";position:absolute;top:2px;left:2px;
+    width:13px;height:13px;border-radius:50%;
+    background:#cfc8e0;transition:transform .2s ease,background .2s ease;
+  }
+  .switch input:checked + .track{background:linear-gradient(90deg,#ff8a3d,#ff4d8d)}
+  .switch input:checked + .track::after{transform:translateX(15px);background:#fff}
+  .switch input:focus-visible + .track{outline:2px solid var(--accent);outline-offset:2px}
+  .switch span{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);
+  }
+
+  .btn{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink);background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:9px;padding:8px 15px;cursor:pointer;
+    transition:background .18s,border-color .18s,transform .08s;
+  }
+  .btn:hover{background:rgba(255,138,61,.16);border-color:rgba(255,138,61,.5)}
+  .btn:active{transform:translateY(1px)}
+
+  @media (max-width:760px){
+    .head p:not(.hint){display:none}
+    .meters{display:none}
+    .head p.hint{display:none}
+    .head{left:18px;top:16px}
+    .tray{gap:12px;padding:10px 14px;border-radius:12px}
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" aria-label="Lámpara de lava interactiva"></canvas>
+
+<div class="ui">
+  <header class="head">
+    <div class="kicker">MAGMA · modelo 01</div>
+    <h1><em>Cera</em> que respira</h1>
+    <p>Glóbulos de cera ascienden y caen por flotación, fundiéndose en filamentos brillantes dentro del vidrio.</p>
+    <p class="hint" id="hint">Toca la lámpara para agitar →</p>
+  </header>
+
+  <div class="meters" aria-hidden="true">
+    <div><span class="dot"></span>bombilla <b id="mWatt">45 W</b></div>
+    <div>glóbulos <b id="mBlobs">12</b></div>
+    <div>calor <b id="mHeat">50%</b></div>
+  </div>
+
+  <div class="tray">
+    <div class="ctl">
+      <label for="sHeat">Calor</label>
+      <input id="sHeat" type="range" min="0" max="100" step="1" value="50">
+      <output id="oHeat">50</output>
+    </div>
+    <div class="sep"></div>
+    <div class="ctl">
+      <label for="sVisc">Viscos.</label>
+      <input id="sVisc" type="range" min="0" max="92" step="1" value="42">
+      <output id="oVisc">42%</output>
+    </div>
+    <div class="sep"></div>
+    <div class="ctl">
+      <label for="sBlobs">Cera</label>
+      <input id="sBlobs" type="range" min="6" max="44" step="1" value="12">
+      <output id="oBlobs">12</output>
+    </div>
+    <div class="sep"></div>
+    <label class="switch" title="Ciclo nocturno">
+      <input id="tNight" type="checkbox">
+      <span class="track"></span>
+      <span>Noche</span>
+    </label>
+    <div class="sep"></div>
+    <button class="btn" id="bStir" type="button">Remover</button>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const TAU = Math.PI * 2;
+  const canvas = document.getElementById("stage");
+  const ctx = canvas.getContext("2d");
+  const off = document.createElement("canvas");
+  const octx = off.getContext("2d");
+
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ================= utilidades ================= */
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const smooth = t => t * t * (3 - 2 * t);
+
+  /* ================= estado ================= */
+  const S = {
+    heat: 0.50,
+    visc: 0.42,
+    targetBlobs: 12,
+    night: false,
+    nightT: 0,
+    boost: 0,
+    W: 0, H: 0, dpr: 1,
+  };
+
+  const blobs = [];
+
+  /* ================= geometría de la lámpara ================= */
+  let L = 0;      // alto de la lámpara (px CSS)
+  let cx = 0, topY = 0, botY = 0, baseY = 0;
+  let u = 1;      // px por unidad (1 = alto de lámpara)
+
+  // Perfil clásico: tronco de cono ancho en la base, estrecho en el cuello.
+  // t=0 en el pie, t=1 en el cuello. Valores en fracción de L.
+  const BASE_W = 0.225, NECK_W = 0.078;
+
+  function halfW(t) {
+    t = clamp(t, 0, 1);
+    // conicidad casi lineal, muy ligeramente convexa
+    let w = lerp(BASE_W, NECK_W, Math.pow(t, 0.88));
+    // pie redondeado y cuello apenas redondeado
+    if (t < 0.10) w *= 0.80 + 0.20 * smooth(t / 0.10);
+    if (t > 0.93) w *= 1 - 0.10 * smooth((t - 0.93) / 0.07);
+    return w;
+  }
+
+  const yOf = t => botY - t * L;
+  const tOf = y => (botY - y) / L;
+
+  // Contorno generado por la MISMA función del físico: no puede deformarse.
+  function vesselPath(c, scale = 1) {
+    const N = 48;
+    c.beginPath();
+    // lado derecho, de abajo arriba
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const x = cx + halfW(t) * L * scale, y = yOf(t);
+      if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+    }
+    // lado izquierdo, de arriba abajo
+    for (let i = N; i >= 0; i--) {
+      const t = i / N;
+      c.lineTo(cx - halfW(t) * L * scale, yOf(t));
+    }
+    // base redondeada
+    c.quadraticCurveTo(cx, yOf(0) + 0.045 * L * scale,
+                       cx + halfW(0) * L * scale, yOf(0));
+    c.closePath();
+  }
+
+  /* ================= color ================= */
+  // Hue de la cera: fría(0)=magenta 322° → caliente(1)=naranja 28°.
+  // Se recorre el camino corto subiendo por el rojo (322→388), nunca por el cian.
+  function waxHue(temp) {
+    return (322 + 66 * clamp(temp, 0, 1)) % 360;
+  }
+  function waxColor(temp, l, a) {
+    return `hsla(${waxHue(temp).toFixed(1)},92%,${l}%,${a})`;
+  }
+
+  /* ================= glóbulos ================= */
+  function makeBlob(t) {
+    const y = yOf(t);
+    const w = halfW(t) * L;
+    return {
+      x: cx + (Math.random() * 2 - 1) * Math.max(4, w - 26),
+      y,
+      vx: 0, vy: 0,
+      temp: clamp(0.35 + 0.55 * (1 - t) + (Math.random() * 2 - 1) * 0.12, 0.08, 1),
+      r: 0.052 + Math.random() * 0.028,     // fracción de L
+      ph: Math.random() * TAU,
+      bias: (Math.random() * 2 - 1) * 0.16,  // individualidad térmica
+      driftFreq: 0.4 + Math.random() * 1.1, // frecuencia de deriva propia
+      drift: (Math.random() * 2 - 1) * 0.14,
+      spin: (Math.random() * 2 - 1) * 0.35,
+      hueJ: (Math.random() * 2 - 1) * 7,
+    };
+  }
+
+  function targetR(b) {
+    const heatK = 0.78 + 0.44 * S.heat;
+    const viscK = 1.08 - 0.30 * S.visc;
+    // más glóbulos ⇒ más pequeños, para que quepan en el vaso
+    const countK = clamp(Math.sqrt(12 / S.targetBlobs), 0.45, 1.5);
+    return b.r * L * heatK * viscK * countK;
+  }
+
+  function syncBlobs() {
+    while (blobs.length < S.targetBlobs) {
+      blobs.push(makeBlob(0.08 + Math.random() * 0.84));
+    }
+    if (blobs.length > S.targetBlobs) blobs.length = S.targetBlobs;
+  }
+
+  function rebuildBlobs() {
+    for (let i = 0; i < blobs.length; i++) {
+      const t = 0.08 + 0.84 * (blobs.length === 1 ? 0.5 : i / (blobs.length - 1));
+      blobs[i] = makeBlob(clamp(t, 0.04, 0.95));
+    }
+  }
+
+  /* ================= física ================= */
+  function physics(dt) {
+    // Velocidad objetivo directa: así el movimiento SIEMPRE es visible.
+    // Un glóbulo caliente sube y uno frío baja, a una velocidad proporcional a L.
+    const speedK = 0.42 * L * (0.5 + S.heat);
+    const bottomT = 0.88 + 0.12 * S.heat;          // junto a la bombilla
+    const topT = 0.06 + 0.10 * (1 - S.heat);       // en el cuello
+    // la viscosidad controla qué rápido alcanza la velocidad objetivo
+    const respond = 1 - Math.exp(-(2.5 + 26 * (1 - S.visc)) * dt);
+    const wobble = 0.9 - 0.6 * S.visc;
+
+    const clock = performance.now() / 1000;
+
+    for (const b of blobs) {
+      // Modelo bistable: solo cambia de estado en los extremos.
+      // En el fondo se calienta; arriba se enfría; en el viaje mantiene su estado.
+      const heightFrac = tOf(b.y);
+      let goal;
+      if (heightFrac < 0.14) goal = bottomT;
+      else if (heightFrac > 0.86) goal = topT;
+      else goal = b.vy < 0 ? 0.88 + b.bias : 0.12 + b.bias;  // realimentación
+      b.temp += (clamp(goal, 0, 1) - b.temp) * 1.6 * dt;
+
+      // velocidad vertical objetivo (caliente → arriba)
+      const vyTarget = -(b.temp - 0.5) * speedK * b.r / 0.073;
+      b.vy += (vyTarget - b.vy) * respond;
+      b.vy += (Math.random() * 2 - 1) * wobble * 22 * u * dt;
+
+      // deriva lateral con frecuencia propia: evita que se apilen
+      const sway = Math.sin(clock * b.driftFreq + b.ph) * 70 * u;
+      b.vx += (b.drift * 26 * u + sway - b.vx) * respond * 0.7;
+
+      const sp = Math.hypot(b.vx, b.vy);
+      const vmax = 0.30 * L;
+      if (sp > vmax) { b.vx = b.vx / sp * vmax; b.vy = b.vy / sp * vmax; }
+
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+
+      // envoltura: arriba → abajo (caliente), abajo → arriba (frío)
+      if (b.y < topY + 2) {
+        b.y = botY - 3;
+        b.x = cx + (Math.random() * 2 - 1) * halfW(0.03) * L * 0.65;
+        b.temp = clamp(bottomT + Math.random() * 0.10, 0, 1);
+        b.vy = 0; b.vx *= 0.3;
+      } else if (b.y > botY + 2) {
+        b.y = topY + 3;
+        b.x = cx + (Math.random() * 2 - 1) * halfW(0.97) * L * 0.65;
+        b.temp = clamp(topT + Math.random() * 0.06, 0, 1);
+        b.vy = 0; b.vx *= 0.3;
+      }
+
+      // paredes del vaso
+      const t = clamp(tOf(b.y), 0.005, 0.995);
+      const lim = Math.max(2, halfW(t) * L - targetR(b) * 0.45);
+      const dx = b.x - cx;
+      if (dx > lim) { b.x = cx + lim; b.vx = -Math.abs(b.vx) * 0.34; }
+      else if (dx < -lim) { b.x = cx - lim; b.vx = Math.abs(b.vx) * 0.34; }
+    }
+
+    // repulsión suave: los glóbulos se apartan al solaparse demasiado
+    for (let i = 0; i < blobs.length; i++) {
+      for (let j = i + 1; j < blobs.length; j++) {
+        const a = blobs[i], c = blobs[j];
+        const dx = c.x - a.x, dy = c.y - a.y;
+        const d = Math.hypot(dx, dy);
+        const minD = (targetR(a) + targetR(c)) * 0.78;
+        if (d > 0.5 && d < minD) {
+          const push = (1 - d / minD) * 90 * u * dt;
+          const nx = dx / d, ny = dy / d;
+          a.vx -= nx * push; a.vy -= ny * push;
+          c.vx += nx * push; c.vy += ny * push;
+        }
+      }
+    }
+  }
+
+  function pushAt(px, py, radius, power) {
+    for (const b of blobs) {
+      const dx = b.x - px, dy = b.y - py;
+      const d = Math.hypot(dx, dy);
+      const R = radius + targetR(b);
+      if (d < R) {
+        const f = (1 - d / R) * power;
+        const inv = 1 / Math.max(d, 8);
+        b.vx += dx * inv * f * 180 * u;
+        b.vy += dy * inv * f * 180 * u - f * 110 * u;
+        b.temp = clamp(b.temp + f * 0.20, 0, 1);
+        b.drift += (Math.random() * 2 - 1) * f * 0.9;
+      }
+    }
+  }
+
+  function stir() {
+    for (const b of blobs) {
+      b.vx += (Math.random() * 2 - 1) * 130 * u;
+      b.vy += (Math.random() * 2 - 1) * 110 * u - 45 * u;
+      b.temp = clamp(b.temp + 0.12 + Math.random() * 0.12, 0, 1);
+      b.drift += (Math.random() * 2 - 1) * 0.5;
+    }
+    S.boost = 0.9;
+    blip();
+  }
+
+  /* ================= dibujo ================= */
+  function drawBackground() {
+    const g = ctx.createLinearGradient(0, 0, 0, S.H);
+    g.addColorStop(0, "#0b0614");
+    g.addColorStop(0.55, "#0a0510");
+    g.addColorStop(1, "#060309");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S.W, S.H);
+
+    // halo cálido a la altura de la lámpara
+    let r = ctx.createRadialGradient(cx, yOf(0.6), 0, cx, yOf(0.6), L * 0.95);
+    r.addColorStop(0, `rgba(255,124,40,${0.10 + 0.10 * S.heat})`);
+    r.addColorStop(0.45, "rgba(150,50,60,0.05)");
+    r.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = r;
+    ctx.fillRect(0, 0, S.W, S.H);
+
+    // florecimiento magenta en la base
+    r = ctx.createRadialGradient(cx, botY, 0, cx, botY, L * 0.55);
+    r.addColorStop(0, `rgba(255,60,150,${0.14 + 0.12 * S.heat})`);
+    r.addColorStop(0.5, "rgba(140,30,120,0.06)");
+    r.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = r;
+    ctx.fillRect(0, 0, S.W, S.H);
+  }
+
+  function drawBulbGlow() {
+    const y = yOf(0.03);
+    const R = L * 0.30;
+    const g = ctx.createRadialGradient(cx, y, 0, cx, y, R);
+    g.addColorStop(0, `rgba(255,190,90,${0.20 + 0.18 * S.heat + S.boost * 0.12})`);
+    g.addColorStop(0.40, `rgba(255,110,40,${0.10 + 0.10 * S.heat})`);
+    g.addColorStop(1, "rgba(255,80,30,0)");
+    ctx.fillStyle = g;
+    // rellenar un rectángulo: si se recorta a un círculo se ve su borde duro
+    ctx.fillRect(cx - R, y - R, R * 2, R * 2);
+  }
+
+  function drawGlassFill() {
+    vesselPath(ctx);
+    const g = ctx.createLinearGradient(cx - L * 0.3, 0, cx + L * 0.3, 0);
+    g.addColorStop(0, "rgba(255,90,170,0.10)");
+    g.addColorStop(0.42, "rgba(190,40,110,0.055)");
+    g.addColorStop(0.60, "rgba(255,120,60,0.065)");
+    g.addColorStop(1, "rgba(255,70,140,0.10)");
+    ctx.fillStyle = g;
+    ctx.fill();
+  }
+
+  function drawBaseAndCap() {
+    const capW = NECK_W * L * 1.14;
+    const capH = 0.062 * L;
+    const capY = topY - capH;
+    let g = ctx.createLinearGradient(cx - capW, 0, cx + capW, 0);
+    g.addColorStop(0, "#241d31");
+    g.addColorStop(0.28, "#6d6383");
+    g.addColorStop(0.46, "#b7add0");
+    g.addColorStop(0.56, "#8e84a6");
+    g.addColorStop(0.8, "#3a3149");
+    g.addColorStop(1, "#1b1626");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(cx - capW * 0.98, capY + capH);
+    ctx.lineTo(cx + capW * 0.98, capY + capH);
+    ctx.lineTo(cx + capW * 0.76, capY);
+    ctx.lineTo(cx - capW * 0.76, capY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,200,240,0.16)";
+    ctx.fillRect(cx - capW * 0.70, capY + 1.2, capW * 0.86, 1.2);
+
+    const footHalf = halfW(0) * L * 1.22;
+    const baseH = 0.11 * L;
+    const baseTop = baseY - 0.018 * L;
+    g = ctx.createLinearGradient(cx - footHalf, 0, cx + footHalf, 0);
+    g.addColorStop(0, "#1d1828");
+    g.addColorStop(0.3, "#5d5470");
+    g.addColorStop(0.5, "#9c92b5");
+    g.addColorStop(0.7, "#463d58");
+    g.addColorStop(1, "#171221");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(cx - footHalf * 0.86, baseTop);
+    ctx.lineTo(cx + footHalf * 0.86, baseTop);
+    ctx.lineTo(cx + footHalf, baseTop + baseH);
+    ctx.lineTo(cx - footHalf, baseTop + baseH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,150,90,0.10)";
+    ctx.fillRect(cx - footHalf * 0.8, baseTop + baseH - 3, footHalf * 1.6, 3);
+  }
+
+  function drawWax() {
+    const dpr = S.dpr;
+    const w = Math.max(2, Math.round(S.W * dpr));
+    const h = Math.max(2, Math.round(S.H * dpr));
+    if (off.width !== w || off.height !== h) { off.width = w; off.height = h; }
+    octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    octx.clearRect(0, 0, S.W, S.H);
+    octx.globalCompositeOperation = "source-over";
+
+    for (const b of blobs) {
+      const R = targetR(b);
+      // borde definido con meseta: los glóbulos se suman y se funden en los cruces
+      const g = octx.createRadialGradient(b.x, b.y, R * 0.10, b.x, b.y, R);
+      g.addColorStop(0.00, waxColor(b.temp, 62, 0.98));
+      g.addColorStop(0.55, waxColor(b.temp, 56, 0.92));
+      g.addColorStop(0.78, waxColor(b.temp, 50, 0.58));
+      g.addColorStop(0.92, waxColor(b.temp, 46, 0.22));
+      g.addColorStop(1.00, waxColor(b.temp, 44, 0));
+      octx.fillStyle = g;
+      octx.beginPath();
+      octx.arc(b.x, b.y, R, 0, TAU);
+      octx.fill();
+    }
+
+    // silueta fundida, recortada al vidrio
+    ctx.save();
+    vesselPath(ctx, 0.982);
+    ctx.clip();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.drawImage(off, 0, 0, S.W, S.H);
+
+    // núcleos cálidos (se atenúan con muchos glóbulos para no saturar)
+    const glowK = clamp(16 / blobs.length, 0.35, 1);
+    ctx.globalCompositeOperation = "lighter";
+    for (const b of blobs) {
+      const R = targetR(b) * 0.60;
+      const g = ctx.createRadialGradient(b.x - R * 0.25, b.y - R * 0.3, R * 0.08, b.x, b.y, R);
+      g.addColorStop(0, `hsla(${waxHue(b.temp).toFixed(1)},100%,72%,${(0.20 * glowK).toFixed(3)})`);
+      g.addColorStop(0.55, `hsla(${waxHue(b.temp).toFixed(1)},96%,58%,${(0.08 * glowK).toFixed(3)})`);
+      g.addColorStop(1, "hsla(320,90%,50%,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, R, 0, TAU);
+      ctx.fill();
+    }
+
+    // filamentos de fusión
+    ctx.lineCap = "round";
+    for (let i = 0; i < blobs.length; i++) {
+      for (let j = i + 1; j < blobs.length; j++) {
+        const a = blobs[i], b = blobs[j];
+        const Ra = targetR(a), Rb = targetR(b);
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d = Math.hypot(dx, dy);
+        const sum = Ra + Rb;
+        if (d < sum * 0.98 && d > 0.001) {
+          const ov = 1 - d / (sum * 0.98);
+          const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+          ctx.strokeStyle = `hsla(${waxHue((a.temp + b.temp) / 2).toFixed(1)},100%,72%,${((0.12 + ov * 0.55) * glowK).toFixed(3)})`;
+          ctx.lineWidth = (2 + ov * 9) * u * 0.5;
+          ctx.beginPath();
+          ctx.moveTo(a.x + dx * (Ra / sum) * 0.7, a.y + dy * (Ra / sum) * 0.7);
+          ctx.lineTo(b.x - dx * (Rb / sum) * 0.7, b.y - dy * (Rb / sum) * 0.7);
+          ctx.stroke();
+          const gg = ctx.createRadialGradient(mx, my, 0, mx, my, (Ra + Rb) * 0.34);
+          gg.addColorStop(0, `hsla(${waxHue((a.temp + b.temp) / 2).toFixed(1)},100%,78%,${((0.20 + ov * 0.35) * glowK).toFixed(3)})`);
+          gg.addColorStop(1, "hsla(320,100%,60%,0)");
+          ctx.fillStyle = gg;
+          ctx.beginPath();
+          ctx.arc(mx, my, (Ra + Rb) * 0.34, 0, TAU);
+          ctx.fill();
+        }
+      }
+    }
+
+    // especulares
+    ctx.globalCompositeOperation = "source-over";
+    for (const b of blobs) {
+      const R = targetR(b);
+      ctx.fillStyle = "rgba(255,235,250,0.10)";
+      ctx.beginPath();
+      ctx.ellipse(b.x - R * 0.30, b.y - R * 0.36, R * 0.24, R * 0.14, -0.5, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawGlassOverlay() {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,196,240,0.17)";
+    ctx.lineWidth = 1.4;
+    vesselPath(ctx, 0.995);
+    ctx.stroke();
+
+    ctx.save();
+    vesselPath(ctx, 0.99);
+    ctx.clip();
+    ctx.beginPath();
+    ctx.moveTo(cx - halfW(0.72) * L * 0.82, yOf(0.97));
+    ctx.bezierCurveTo(cx - halfW(0.58) * L * 0.95, yOf(0.74),
+                      cx - halfW(0.46) * L * 0.95, yOf(0.52),
+                      cx - halfW(0.34) * L * 0.80, yOf(0.38));
+    ctx.strokeStyle = "rgba(255,220,245,0.14)";
+    ctx.lineWidth = Math.max(2, 5 * u);
+    ctx.lineCap = "round";
+    ctx.stroke();
+    ctx.restore();
+
+    const yb = yOf(0.02), rb = L * 0.22;
+    const g = ctx.createRadialGradient(cx, yb, 0, cx, yb, rb);
+    g.addColorStop(0, `rgba(255,210,140,${0.16 + 0.18 * S.heat})`);
+    g.addColorStop(1, "rgba(255,150,60,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - rb, yb - rb, rb * 2, rb * 2);
+    ctx.restore();
+  }
+
+  function drawVignette() {
+    const g = ctx.createRadialGradient(cx, S.H * 0.5, L * 0.30, cx, S.H * 0.5, Math.max(S.W, S.H) * 0.78);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0.55)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S.W, S.H);
+  }
+
+  function render() {
+    ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+    drawBackground();
+    drawBulbGlow();
+    drawBaseAndCap();
+    drawGlassFill();
+    drawWax();
+    drawGlassOverlay();
+    drawVignette();
+  }
+
+  /* ================= bucle ================= */
+  let last = performance.now(), acc = 0;
+  const STEP = 1 / 120;
+
+  function frame(now) {
+    // por si el evento resize no llega (cambio de orientación, emulación, etc.)
+    if (document.documentElement.clientWidth !== S.W ||
+        document.documentElement.clientHeight !== S.H) resize();
+
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+
+    if (S.night) {
+      S.nightT += dt;
+      S.heat = 0.5 + 0.34 * Math.sin((S.nightT / 9) * TAU - Math.PI / 2);
+      ui.heat.value = Math.round(S.heat * 100);
+      ui.oHeat.textContent = Math.round(S.heat * 100);
+    }
+    S.boost = Math.max(0, S.boost - dt * 1.6);
+
+    if (!document.hidden) {
+      acc += dt;
+      let n = 0;
+      while (acc >= STEP && n < 8) { physics(STEP); acc -= STEP; n++; }
+      if (n === 8) acc = 0;
+      render();
+      updateMeters();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ================= UI ================= */
+  const ui = {
+    heat: document.getElementById("sHeat"),
+    visc: document.getElementById("sVisc"),
+    blobs: document.getElementById("sBlobs"),
+    night: document.getElementById("tNight"),
+    stir: document.getElementById("bStir"),
+    oHeat: document.getElementById("oHeat"),
+    oVisc: document.getElementById("oVisc"),
+    oBlobs: document.getElementById("oBlobs"),
+    mWatt: document.getElementById("mWatt"),
+    mBlobs: document.getElementById("mBlobs"),
+    mHeat: document.getElementById("mHeat"),
+    hint: document.getElementById("hint"),
+  };
+
+  function updateMeters() {
+    ui.mWatt.textContent = Math.round(28 + S.heat * 44) + " W";
+    ui.mBlobs.textContent = blobs.length;
+    ui.mHeat.textContent = Math.round(S.heat * 100) + "%";
+  }
+
+  ui.heat.addEventListener("input", () => {
+    S.heat = ui.heat.value / 100;
+    ui.oHeat.textContent = ui.heat.value;
+  });
+  ui.visc.addEventListener("input", () => {
+    S.visc = ui.visc.value / 100;
+    ui.oVisc.textContent = ui.visc.value + "%";
+  });
+  ui.blobs.addEventListener("input", () => {
+    S.targetBlobs = +ui.blobs.value;
+    ui.oBlobs.textContent = ui.blobs.value;
+    syncBlobs();
+    updateMeters();
+  });
+  ui.night.addEventListener("change", () => { S.night = ui.night.checked; });
+  ui.stir.addEventListener("click", stir);
+
+  /* ---- interacción con puntero ---- */
+  let pointerDown = false, lastPX = 0, lastPY = 0, moved = false;
+
+  function toLocal(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  const insideVessel = p => {
+    if (p.y < topY - 20 || p.y > botY + 10) return false;
+    const t = clamp(tOf(p.y), 0, 1);
+    return Math.abs(p.x - cx) < halfW(t) * L + 14;
+  };
+
+  canvas.addEventListener("pointerdown", e => {
+    pointerDown = true; moved = false;
+    const p = toLocal(e);
+    lastPX = p.x; lastPY = p.y;
+    if (insideVessel(p)) pushAt(p.x, p.y, 0.14 * L, 1.0);
+    ui.hint.style.opacity = "0";
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* puntero sintético */ }
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (!pointerDown) return;
+    const p = toLocal(e);
+    const dx = p.x - lastPX, dy = p.y - lastPY;
+    if (Math.hypot(dx, dy) > 3) moved = true;
+    if (insideVessel(p)) {
+      const d = Math.hypot(dx, dy);
+      pushAt(p.x, p.y, 0.10 * L, clamp(0.18 + d * 0.012, 0.18, 0.55));
+    }
+    lastPX = p.x; lastPY = p.y;
+  });
+  const endPointer = () => { pointerDown = false; };
+  canvas.addEventListener("pointerup", endPointer);
+  canvas.addEventListener("pointercancel", endPointer);
+
+  /* ---- audio ---- */
+  let actx = null;
+  function blip() {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(190, actx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(78, actx.currentTime + 0.18);
+      g.gain.setValueAtTime(0.0001, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.14, actx.currentTime + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + 0.22);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + 0.24);
+    } catch (e) { /* sin audio */ }
+  }
+
+  /* ================= tamaño ================= */
+  function resize() {
+    // medir el viewport, nunca el propio lienzo (su tamaño intrínseco es 300×150)
+    const w = document.documentElement.clientWidth || innerWidth;
+    const h = document.documentElement.clientHeight || innerHeight;
+    S.dpr = clamp(window.devicePixelRatio || 1, 1, 1.75);
+    S.W = w; S.H = h;
+    canvas.width = Math.round(w * S.dpr);
+    canvas.height = Math.round(h * S.dpr);
+    // sin estos estilos el canvas usa su tamaño intrínseco y desborda el viewport
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+
+    // alto de la lámpara: cabe entre la cabecera y la bandeja con margen
+    const usable = h - 250;                 // cabecera + bandeja + hueco
+    L = Math.max(240, Math.min(usable, w * 0.55, 600));
+    u = L / 1000;
+    cx = w / 2;
+    // centrar el conjunto (cap incluido) en el espacio útil
+    const midY = 130 + (h - 250) / 2;
+    botY = midY + L * 0.44;                 // base del vaso
+    topY = botY - L;                        // cuello
+    baseY = botY + 0.085 * L;               // zócalo (dentro del hueco)
+
+    // la geometría cambió: se recolocan los glóbulos y se rellenan los huecos
+    for (const b of blobs) {
+      const t = clamp(tOf(b.y), 0.04, 0.97);
+      b.y = yOf(t);
+      const lim = Math.max(4, halfW(t) * L - 20);
+      b.x = cx + clamp(b.x - cx, -lim, lim);
+    }
+    syncBlobs();
+  }
+
+  addEventListener("resize", resize);
+  resize();
+  syncBlobs();
+  updateMeters();
+  requestAnimationFrame(frame);
+
+  // salida suave: apaga el hint a los 9 s
+  setTimeout(() => { ui.hint.style.opacity = "0"; }, 9000);
+})();
+</script>
+</body>
+</html>
