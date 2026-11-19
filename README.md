@@ -65,6 +65,17 @@ Abre `index.html` en cualquier navegador moderno. No hay paso de compilación ni
 └── README.md
 ```
 
+## Publicar en GitHub Pages
+
+El proyecto es estático y compatible con GitHub Pages sin ningún paso de compilación:
+
+1. En el repo, entra en **Settings → Pages**.
+2. En **Build and deployment**, selecciona **Deploy from a branch**.
+3. Elige la rama `main` y la carpeta `/ (root)`, y guarda.
+4. Espera unos segundos a que se complete el despliegue.
+
+La URL será `https://hugopvigo.github.io/LavaLamp/`.
+
 ## Licencia
 
 Desarrollado por Hugo Perez-Vigo · hugoperezvigo.es
